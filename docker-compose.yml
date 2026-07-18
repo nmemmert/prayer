@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:4000"
     volumes:
-      - prayer-data:/data
+      - /media/ZimaOS-HD/AppData/Prayer/Data:/data
     environment:
       - DATA_DIR=/data
       - PORT=4000
@@ -16,7 +16,3 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-volumes:
-  prayer-data:
-    driver: local
