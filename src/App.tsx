@@ -103,6 +103,13 @@ export default function App() {
     setActiveTag(prev => prev === tag ? null : tag);
   }
 
+  function handleExport() {
+    const params = new URLSearchParams();
+    params.set('status', filter);
+    if (activeTag) params.set('tag', activeTag);
+    window.location.href = `/api/export?${params.toString()}`;
+  }
+
   const emptyMessage = search
     ? `No results for "${search}".`
     : activeTag
@@ -166,6 +173,10 @@ export default function App() {
             All
           </button>
         </div>
+
+        <button className="btn btn-export" onClick={handleExport} title="Export to Word">
+          ↓ Export
+        </button>
 
         <div className="search-wrap">
           <span className="search-icon">⌕</span>

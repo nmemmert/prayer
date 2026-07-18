@@ -214,6 +214,22 @@ body {
   gap: .5rem;
 }
 
+.btn-export {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: .82rem;
+  padding: .38rem .8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-export:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
 /* Search */
 .search-wrap {
   position: relative;
