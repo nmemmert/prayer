@@ -5,6 +5,21 @@ import './App.css';
 
 type Filter = 'active' | 'answered' | 'all';
 
+function normalize(s: string) {
+  return s.toLowerCase().trim();
+}
+
+function matches(prayer: Prayer, query: string) {
+  const q = normalize(query);
+  if (!q) return true;
+  return (
+    normalize(prayer.person).includes(q) ||
+    normalize(prayer.request).includes(q) ||
+    normalize(prayer.answer).includes(q) ||
+    prayer.tags.some(t => normalize(t).includes(q))
+  );
+}
+
 export default function App() {
   const {
     prayers,
@@ -21,27 +36,29 @@ export default function App() {
 
   const [filter, setFilter] = useState<Filter>('active');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [newPerson, setNewPerson] = useState('');
   const [newRequest, setNewRequest] = useState('');
   const [newTags, setNewTags] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingAnswer, setEditingAnswer] = useState<{ id: string; text: string } | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
 
-  // All unique tags across all non-archived prayers
   const allTags = useMemo(() => {
     const set = new Set<string>();
     prayers.filter(p => p.status !== 'archived').forEach(p => p.tags.forEach(t => set.add(t)));
     return Array.from(set).sort();
   }, [prayers]);
 
-  const filtered = prayers.filter(p => {
+  const filtered = useMemo(() => prayers.filter(p => {
     const statusMatch =
       filter === 'active' ? p.status === 'active' :
       filter === 'answered' ? p.status === 'answered' :
       p.status !== 'archived';
     const tagMatch = activeTag ? p.tags.includes(activeTag) : true;
-    return statusMatch && tagMatch;
-  });
+    const searchMatch = matches(p, search);
+    return statusMatch && tagMatch && searchMatch;
+  }), [prayers, filter, activeTag, search]);
 
   const counts = {
     active: prayers.filter(p => p.status === 'active').length,
@@ -53,7 +70,8 @@ export default function App() {
     if (!newRequest.trim()) return;
     const tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
     try {
-      await addPrayer(newRequest.trim(), tags);
+      await addPrayer(newPerson.trim(), newRequest.trim(), tags);
+      setNewPerson('');
       setNewRequest('');
       setNewTags('');
       setWriteError(null);
@@ -77,15 +95,21 @@ export default function App() {
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+      month: 'short', day: 'numeric', year: 'numeric',
     });
   }
 
   function handleTagClick(tag: string) {
     setActiveTag(prev => prev === tag ? null : tag);
   }
+
+  const emptyMessage = search
+    ? `No results for "${search}".`
+    : activeTag
+    ? `No ${filter === 'all' ? '' : filter + ' '}prayers tagged "${activeTag}".`
+    : filter === 'active'
+    ? 'No active prayers. Add one above.'
+    : 'Nothing here yet.';
 
   return (
     <div className="app">
@@ -95,6 +119,12 @@ export default function App() {
       </header>
 
       <form className="add-form" onSubmit={handleAdd}>
+        <input
+          className="person-input"
+          placeholder="Who are you praying for? (optional)"
+          value={newPerson}
+          onChange={e => setNewPerson(e.target.value)}
+        />
         <textarea
           className="request-input"
           placeholder="What would you like to pray about?"
@@ -115,30 +145,45 @@ export default function App() {
         </div>
       </form>
 
-      <div className="filter-bar">
-        <button
-          className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-          onClick={() => setFilter('active')}
-        >
-          Active <span className="count">{counts.active}</span>
-        </button>
-        <button
-          className={`filter-btn ${filter === 'answered' ? 'active' : ''}`}
-          onClick={() => setFilter('answered')}
-        >
-          Answered <span className="count">{counts.answered}</span>
-        </button>
-        <button
-          className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          All
-        </button>
+      <div className="toolbar">
+        <div className="filter-bar">
+          <button
+            className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
+            onClick={() => setFilter('active')}
+          >
+            Active <span className="count">{counts.active}</span>
+          </button>
+          <button
+            className={`filter-btn ${filter === 'answered' ? 'active' : ''}`}
+            onClick={() => setFilter('answered')}
+          >
+            Answered <span className="count">{counts.answered}</span>
+          </button>
+          <button
+            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All
+          </button>
+        </div>
+
+        <div className="search-wrap">
+          <span className="search-icon">⌕</span>
+          <input
+            className="search-input"
+            placeholder="Search prayers…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="search-clear" onClick={() => setSearch('')}>✕</button>
+          )}
+        </div>
       </div>
 
       {allTags.length > 0 && (
         <div className="tag-filter-bar">
-          <span className="tag-filter-label">Filter by tag:</span>
+          <span className="tag-filter-label">Tags:</span>
           {allTags.map(tag => (
             <button
               key={tag}
@@ -149,30 +194,20 @@ export default function App() {
             </button>
           ))}
           {activeTag && (
-            <button className="tag-clear-btn" onClick={() => setActiveTag(null)}>
-              ✕ Clear
-            </button>
+            <button className="tag-clear-btn" onClick={() => setActiveTag(null)}>✕ Clear</button>
           )}
         </div>
       )}
 
       {(writeError || apiError) && (
-        <div className="error-banner">
-          ⚠ {writeError || apiError}
-        </div>
+        <div className="error-banner">⚠ {writeError || apiError}</div>
       )}
 
       {loading && <p className="loading">Loading prayers…</p>}
 
       <ul className="prayer-list">
         {filtered.length === 0 && !loading && (
-          <li className="empty">
-            {activeTag
-              ? `No ${filter === 'all' ? '' : filter + ' '}prayers tagged "${activeTag}".`
-              : filter === 'active'
-              ? 'No active prayers. Add one above.'
-              : 'Nothing here yet.'}
-          </li>
+          <li className="empty">{emptyMessage}</li>
         )}
 
         {filtered.map(prayer => (
@@ -182,10 +217,9 @@ export default function App() {
             expanded={expandedId === prayer.id}
             editingAnswer={editingAnswer?.id === prayer.id ? editingAnswer.text : null}
             activeTag={activeTag}
+            searchQuery={search}
             onTagClick={handleTagClick}
-            onToggle={() =>
-              setExpandedId(expandedId === prayer.id ? null : prayer.id)
-            }
+            onToggle={() => setExpandedId(expandedId === prayer.id ? null : prayer.id)}
             onStartAnswer={() => {
               setExpandedId(prayer.id);
               setEditingAnswer({ id: prayer.id, text: prayer.answer });
@@ -205,11 +239,25 @@ export default function App() {
   );
 }
 
+function highlight(text: string, query: string) {
+  if (!query.trim()) return <>{text}</>;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? <mark key={i} className="highlight">{part}</mark> : part
+      )}
+    </>
+  );
+}
+
 interface CardProps {
   prayer: Prayer;
   expanded: boolean;
   editingAnswer: string | null;
   activeTag: string | null;
+  searchQuery: string;
   onTagClick: (tag: string) => void;
   onToggle: () => void;
   onStartAnswer: () => void;
@@ -228,6 +276,7 @@ function PrayerCard({
   expanded,
   editingAnswer,
   activeTag,
+  searchQuery,
   onTagClick,
   onToggle,
   onStartAnswer,
@@ -244,7 +293,12 @@ function PrayerCard({
       <div className="card-top" onClick={onToggle}>
         <div className="card-main">
           <span className={`status-dot ${prayer.status}`} />
-          <p className="request-text">{prayer.request}</p>
+          <div className="card-text">
+            {prayer.person && (
+              <p className="person-name">{highlight(prayer.person, searchQuery)}</p>
+            )}
+            <p className="request-text">{highlight(prayer.request, searchQuery)}</p>
+          </div>
         </div>
         <div className="card-meta">
           <span className="date">{formatDate(prayer.createdAt)}</span>
@@ -266,11 +320,9 @@ function PrayerCard({
           {prayer.status === 'answered' && prayer.answer && editingAnswer === null && (
             <div className="answer-section">
               <label className="answer-label">Answer</label>
-              <p className="answer-text">{prayer.answer}</p>
+              <p className="answer-text">{highlight(prayer.answer, searchQuery)}</p>
               {prayer.answeredAt && (
-                <span className="answered-date">
-                  Answered {formatDate(prayer.answeredAt)}
-                </span>
+                <span className="answered-date">Answered {formatDate(prayer.answeredAt)}</span>
               )}
               <button className="btn btn-sm" onClick={onStartAnswer}>Edit answer</button>
             </div>

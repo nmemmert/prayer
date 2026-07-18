@@ -24,8 +24,9 @@ export function usePrayers() {
       .finally(() => setLoading(false));
   }, []);
 
-  const addPrayer = useCallback(async (request: string, tags: string[]) => {
+  const addPrayer = useCallback(async (person: string, request: string, tags: string[]) => {
     const prayer = {
+      person,
       request,
       answer: '',
       status: 'active',

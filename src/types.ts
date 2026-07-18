@@ -1,5 +1,6 @@
 export interface Prayer {
   id: string;
+  person: string;
   request: string;
   answer: string;
   status: 'active' | 'answered' | 'archived';
