@@ -25,8 +25,7 @@ export function usePrayers() {
   }, []);
 
   const addPrayer = useCallback(async (request: string, tags: string[]) => {
-    const prayer: Prayer = {
-      id: crypto.randomUUID(),
+    const prayer = {
       request,
       answer: '',
       status: 'active',

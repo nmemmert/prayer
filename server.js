@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 const app = express();
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -50,7 +51,7 @@ app.get('/api/prayers', (req, res) => {
 app.post('/api/prayers', (req, res) => {
   try {
     const prayers = readPrayers();
-    const prayer = req.body;
+    const prayer = { id: randomUUID(), ...req.body };
     prayers.unshift(prayer);
     writePrayers(prayers);
     res.status(201).json(prayer);
