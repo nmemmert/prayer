@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePrayers } from './usePrayers';
 import { Prayer } from './types';
 import './App.css';
@@ -20,16 +20,27 @@ export default function App() {
   } = usePrayers();
 
   const [filter, setFilter] = useState<Filter>('active');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [newRequest, setNewRequest] = useState('');
   const [newTags, setNewTags] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingAnswer, setEditingAnswer] = useState<{ id: string; text: string } | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
 
+  // All unique tags across all non-archived prayers
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    prayers.filter(p => p.status !== 'archived').forEach(p => p.tags.forEach(t => set.add(t)));
+    return Array.from(set).sort();
+  }, [prayers]);
+
   const filtered = prayers.filter(p => {
-    if (filter === 'active') return p.status === 'active';
-    if (filter === 'answered') return p.status === 'answered';
-    return p.status !== 'archived';
+    const statusMatch =
+      filter === 'active' ? p.status === 'active' :
+      filter === 'answered' ? p.status === 'answered' :
+      p.status !== 'archived';
+    const tagMatch = activeTag ? p.tags.includes(activeTag) : true;
+    return statusMatch && tagMatch;
   });
 
   const counts = {
@@ -70,6 +81,10 @@ export default function App() {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  function handleTagClick(tag: string) {
+    setActiveTag(prev => prev === tag ? null : tag);
   }
 
   return (
@@ -121,6 +136,26 @@ export default function App() {
         </button>
       </div>
 
+      {allTags.length > 0 && (
+        <div className="tag-filter-bar">
+          <span className="tag-filter-label">Filter by tag:</span>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              className={`tag-filter-btn ${activeTag === tag ? 'active' : ''}`}
+              onClick={() => handleTagClick(tag)}
+            >
+              {tag}
+            </button>
+          ))}
+          {activeTag && (
+            <button className="tag-clear-btn" onClick={() => setActiveTag(null)}>
+              ✕ Clear
+            </button>
+          )}
+        </div>
+      )}
+
       {(writeError || apiError) && (
         <div className="error-banner">
           ⚠ {writeError || apiError}
@@ -130,9 +165,11 @@ export default function App() {
       {loading && <p className="loading">Loading prayers…</p>}
 
       <ul className="prayer-list">
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !loading && (
           <li className="empty">
-            {filter === 'active'
+            {activeTag
+              ? `No ${filter === 'all' ? '' : filter + ' '}prayers tagged "${activeTag}".`
+              : filter === 'active'
               ? 'No active prayers. Add one above.'
               : 'Nothing here yet.'}
           </li>
@@ -144,6 +181,8 @@ export default function App() {
             prayer={prayer}
             expanded={expandedId === prayer.id}
             editingAnswer={editingAnswer?.id === prayer.id ? editingAnswer.text : null}
+            activeTag={activeTag}
+            onTagClick={handleTagClick}
             onToggle={() =>
               setExpandedId(expandedId === prayer.id ? null : prayer.id)
             }
@@ -170,6 +209,8 @@ interface CardProps {
   prayer: Prayer;
   expanded: boolean;
   editingAnswer: string | null;
+  activeTag: string | null;
+  onTagClick: (tag: string) => void;
   onToggle: () => void;
   onStartAnswer: () => void;
   onEditAnswer: (text: string) => void;
@@ -186,6 +227,8 @@ function PrayerCard({
   prayer,
   expanded,
   editingAnswer,
+  activeTag,
+  onTagClick,
   onToggle,
   onStartAnswer,
   onEditAnswer,
@@ -206,7 +249,13 @@ function PrayerCard({
         <div className="card-meta">
           <span className="date">{formatDate(prayer.createdAt)}</span>
           {prayer.tags.map(tag => (
-            <span key={tag} className="tag">{tag}</span>
+            <span
+              key={tag}
+              className={`tag ${activeTag === tag ? 'tag-active' : ''}`}
+              onClick={e => { e.stopPropagation(); onTagClick(tag); }}
+            >
+              {tag}
+            </span>
           ))}
           <span className="chevron">{expanded ? '▲' : '▼'}</span>
         </div>

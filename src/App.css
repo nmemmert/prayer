@@ -227,6 +227,73 @@ body {
 }
 
 /* Prayer list */
+/* Tag filter bar */
+.tag-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: 1rem;
+  padding: .6rem .75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.tag-filter-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: .72rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: .2rem;
+}
+
+.tag-filter-btn {
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: .2rem .55rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.tag-filter-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tag-filter-btn.active {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border-color: var(--primary);
+}
+
+.tag-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: .78rem;
+  cursor: pointer;
+  padding: .2rem .4rem;
+  margin-left: .2rem;
+}
+
+.tag-clear-btn:hover { color: var(--danger); }
+
+/* Clickable tags on cards */
+.tag {
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.tag:hover { background: var(--primary); color: var(--primary-fg); }
+.tag.tag-active { background: var(--primary); color: var(--primary-fg); }
+
 .prayer-list {
   list-style: none;
   display: flex;
