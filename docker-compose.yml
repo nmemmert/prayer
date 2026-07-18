@@ -1,10 +1,22 @@
 services:
   prayer:
-    build: .
+    image: ghcr.io/nmemmert/prayer:latest
+    build:
+      context: .
     ports:
       - "3000:4000"
     volumes:
       - prayer-data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=4000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/prayers"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   prayer-data:
+    driver: local

@@ -1,46 +1,85 @@
-# Getting Started with Create React App
+# Prayer Journal
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A todo-list style prayer app. Add prayer requests, record how God answered them, filter between active and answered, and tag entries for organization. Data persists to a mounted Docker volume.
 
-## Available Scripts
+## Running with Docker
 
-In the project directory, you can run:
+### Pull the pre-built image (recommended)
 
-### `npm start`
+```bash
+docker compose up -d
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+The `docker-compose.yml` pulls `ghcr.io/nmemmert/prayer:latest` automatically. Open [http://localhost:3000](http://localhost:3000).
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### Build locally
 
-### `npm test`
+```bash
+docker compose up --build -d
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Data persistence
 
-### `npm run build`
+Prayer data is stored in `/data/prayers.json` inside the container, mounted as the named Docker volume `prayer-data`. Data survives container restarts and image updates.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+To inspect or back up your data:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+# Print current prayers
+docker compose exec prayer cat /data/prayers.json
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Copy to host
+docker cp $(docker compose ps -q prayer):/data/prayers.json ./prayers-backup.json
+```
 
-### `npm run eject`
+To wipe all data:
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```bash
+docker compose down -v
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Using a host-bind mount instead of a named volume
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+Replace the `volumes` block in `docker-compose.yml`:
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```yaml
+volumes:
+  - ./prayer-data:/data
+```
 
-## Learn More
+## CI / CD
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Pushes to `main` trigger a GitHub Actions workflow (`.github/workflows/docker.yml`) that:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Builds the Docker image (multi-stage: Node 20 → Node 20 slim)
+2. Pushes to GitHub Container Registry (`ghcr.io/nmemmert/prayer`)
+3. Tags the image as `latest`, the branch name, and the short commit SHA
+
+Pull requests run the build step only (no push).
+
+The `GITHUB_TOKEN` secret is used automatically — no additional secrets are required.
+
+## Development
+
+```bash
+npm install
+npm start        # React dev server on :3000 (uses localStorage, no backend)
+node server.js   # API server on :4000 (reads/writes data/prayers.json)
+```
+
+For full local dev with the backend:
+
+```bash
+node server.js &
+REACT_APP_API_BASE=http://localhost:4000 npm start
+```
+
+## Stack
+
+| Layer    | Technology                        |
+|----------|-----------------------------------|
+| Frontend | React 18, TypeScript              |
+| Backend  | Node.js, Express                  |
+| Data     | JSON file on a Docker volume      |
+| Images   | GitHub Container Registry (ghcr)  |
+| CI/CD    | GitHub Actions                    |
