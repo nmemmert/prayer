@@ -1,0 +1,9 @@
+export interface Prayer {
+  id: string;
+  request: string;
+  answer: string;
+  status: 'active' | 'answered' | 'archived';
+  createdAt: string;
+  answeredAt?: string;
+  tags: string[];
+}
