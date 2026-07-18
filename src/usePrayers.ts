@@ -3,14 +3,24 @@ import { Prayer } from './types';
 
 const API = '/api/prayers';
 
+async function checkResponse(r: Response) {
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    throw new Error(body.error || `Server error ${r.status}`);
+  }
+  return r;
+}
+
 export function usePrayers() {
   const [prayers, setPrayers] = useState<Prayer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(API)
       .then(r => r.json())
       .then(setPrayers)
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -27,7 +37,7 @@ export function usePrayers() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(prayer),
-    }).then(r => r.json());
+    }).then(checkResponse).then(r => r.json());
     setPrayers(prev => [saved, ...prev]);
   }, []);
 
@@ -36,7 +46,7 @@ export function usePrayers() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
-    }).then(r => r.json());
+    }).then(checkResponse).then(r => r.json());
     setPrayers(prev => prev.map(p => p.id === id ? updated : p));
   }, []);
 
@@ -56,13 +66,14 @@ export function usePrayers() {
     patch(id, { request }), [patch]);
 
   const deletePrayer = useCallback(async (id: string) => {
-    await fetch(`${API}/${id}`, { method: 'DELETE' });
+    await fetch(`${API}/${id}`, { method: 'DELETE' }).then(checkResponse);
     setPrayers(prev => prev.filter(p => p.id !== id));
   }, []);
 
   return {
     prayers,
     loading,
+    error,
     addPrayer,
     updateAnswer,
     markAnswered,

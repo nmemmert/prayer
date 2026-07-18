@@ -9,6 +9,7 @@ export default function App() {
   const {
     prayers,
     loading,
+    error: apiError,
     addPrayer,
     updateAnswer,
     markAnswered,
@@ -23,6 +24,7 @@ export default function App() {
   const [newTags, setNewTags] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingAnswer, setEditingAnswer] = useState<{ id: string; text: string } | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   const filtered = prayers.filter(p => {
     if (filter === 'active') return p.status === 'active';
@@ -35,24 +37,31 @@ export default function App() {
     answered: prayers.filter(p => p.status === 'answered').length,
   };
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newRequest.trim()) return;
-    const tags = newTags
-      .split(',')
-      .map(t => t.trim())
-      .filter(Boolean);
-    addPrayer(newRequest.trim(), tags);
-    setNewRequest('');
-    setNewTags('');
+    const tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
+    try {
+      await addPrayer(newRequest.trim(), tags);
+      setNewRequest('');
+      setNewTags('');
+      setWriteError(null);
+    } catch (err: any) {
+      setWriteError(err.message);
+    }
   }
 
-  function handleSaveAnswer(id: string) {
+  async function handleSaveAnswer(id: string) {
     if (!editingAnswer) return;
-    updateAnswer(id, editingAnswer.text);
-    markAnswered(id);
-    setEditingAnswer(null);
-    setExpandedId(null);
+    try {
+      await updateAnswer(id, editingAnswer.text);
+      await markAnswered(id);
+      setEditingAnswer(null);
+      setExpandedId(null);
+      setWriteError(null);
+    } catch (err: any) {
+      setWriteError(err.message);
+    }
   }
 
   function formatDate(iso: string) {
@@ -111,6 +120,12 @@ export default function App() {
           All
         </button>
       </div>
+
+      {(writeError || apiError) && (
+        <div className="error-banner">
+          ⚠ {writeError || apiError}
+        </div>
+      )}
 
       {loading && <p className="loading">Loading prayers…</p>}
 
