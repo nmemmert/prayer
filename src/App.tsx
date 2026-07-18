@@ -8,6 +8,7 @@ type Filter = 'active' | 'answered' | 'all';
 export default function App() {
   const {
     prayers,
+    loading,
     addPrayer,
     updateAnswer,
     markAnswered,
@@ -110,6 +111,8 @@ export default function App() {
           All
         </button>
       </div>
+
+      {loading && <p className="loading">Loading prayers…</p>}
 
       <ul className="prayer-list">
         {filtered.length === 0 && (

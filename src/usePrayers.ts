@@ -1,23 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Prayer } from './types';
 
-const STORAGE_KEY = 'prayer-journal';
+const API = '/api/prayers';
 
 export function usePrayers() {
-  const [prayers, setPrayers] = useState<Prayer[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [prayers, setPrayers] = useState<Prayer[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prayers));
-  }, [prayers]);
+    fetch(API)
+      .then(r => r.json())
+      .then(setPrayers)
+      .finally(() => setLoading(false));
+  }, []);
 
-  function addPrayer(request: string, tags: string[]) {
+  const addPrayer = useCallback(async (request: string, tags: string[]) => {
     const prayer: Prayer = {
       id: crypto.randomUUID(),
       request,
@@ -26,51 +23,46 @@ export function usePrayers() {
       createdAt: new Date().toISOString(),
       tags,
     };
-    setPrayers(prev => [prayer, ...prev]);
-  }
+    const saved = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(prayer),
+    }).then(r => r.json());
+    setPrayers(prev => [saved, ...prev]);
+  }, []);
 
-  function updateAnswer(id: string, answer: string) {
-    setPrayers(prev =>
-      prev.map(p => p.id === id ? { ...p, answer } : p)
-    );
-  }
+  const patch = useCallback(async (id: string, updates: Partial<Prayer>) => {
+    const updated = await fetch(`${API}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    }).then(r => r.json());
+    setPrayers(prev => prev.map(p => p.id === id ? updated : p));
+  }, []);
 
-  function markAnswered(id: string) {
-    setPrayers(prev =>
-      prev.map(p =>
-        p.id === id
-          ? { ...p, status: 'answered', answeredAt: new Date().toISOString() }
-          : p
-      )
-    );
-  }
+  const updateAnswer = useCallback((id: string, answer: string) =>
+    patch(id, { answer }), [patch]);
 
-  function markActive(id: string) {
-    setPrayers(prev =>
-      prev.map(p =>
-        p.id === id ? { ...p, status: 'active', answeredAt: undefined } : p
-      )
-    );
-  }
+  const markAnswered = useCallback((id: string) =>
+    patch(id, { status: 'answered', answeredAt: new Date().toISOString() }), [patch]);
 
-  function archivePrayer(id: string) {
-    setPrayers(prev =>
-      prev.map(p => p.id === id ? { ...p, status: 'archived' } : p)
-    );
-  }
+  const markActive = useCallback((id: string) =>
+    patch(id, { status: 'active', answeredAt: undefined }), [patch]);
 
-  function deletePrayer(id: string) {
+  const archivePrayer = useCallback((id: string) =>
+    patch(id, { status: 'archived' }), [patch]);
+
+  const updateRequest = useCallback((id: string, request: string) =>
+    patch(id, { request }), [patch]);
+
+  const deletePrayer = useCallback(async (id: string) => {
+    await fetch(`${API}/${id}`, { method: 'DELETE' });
     setPrayers(prev => prev.filter(p => p.id !== id));
-  }
-
-  function updateRequest(id: string, request: string) {
-    setPrayers(prev =>
-      prev.map(p => p.id === id ? { ...p, request } : p)
-    );
-  }
+  }, []);
 
   return {
     prayers,
+    loading,
     addPrayer,
     updateAnswer,
     markAnswered,

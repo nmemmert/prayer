@@ -234,6 +234,13 @@ body {
   gap: 0.75rem;
 }
 
+.loading {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 1rem 0;
+}
+
 .empty {
   text-align: center;
   color: var(--text-muted);
