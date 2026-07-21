@@ -7,7 +7,8 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
-RUN npm install express cors docx
+COPY package*.json ./
+RUN npm install --omit=dev
 COPY server.js ./
 COPY --from=build /app/build ./build
 
