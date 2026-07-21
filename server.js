@@ -94,6 +94,33 @@ function prayerToSection(prayer, index) {
     }
   }
 
+  // Notes (if present)
+  if (prayer.notes && prayer.notes.trim()) {
+    paras.push(new Paragraph({
+      children: [new TextRun({ text: 'Notes', bold: true, size: 20, color: '5A5A2A' })],
+      spacing: { after: 60 },
+    }));
+    paras.push(new Paragraph({
+      children: [new TextRun({ text: prayer.notes, size: 22 })],
+      spacing: { after: 160 },
+    }));
+  }
+
+  // Prayer log (if present)
+  if (prayer.prayedLog && prayer.prayedLog.length > 0) {
+    paras.push(new Paragraph({
+      children: [new TextRun({ text: `Prayer Log (${prayer.prayedLog.length} session${prayer.prayedLog.length !== 1 ? 's' : ''})`, bold: true, size: 20, color: '4B6FA8' })],
+      spacing: { after: 60 },
+    }));
+    const sorted = [...prayer.prayedLog].sort((a, b) => new Date(b.date) - new Date(a.date));
+    sorted.forEach(entry => {
+      const runs = [new TextRun({ text: fmtDate(entry.date), bold: true, size: 19, color: '555555' })];
+      if (entry.note) runs.push(new TextRun({ text: `  —  ${entry.note}`, size: 19, color: '666666' }));
+      paras.push(new Paragraph({ children: runs, spacing: { after: 60 } }));
+    });
+    paras.push(new Paragraph({ children: [], spacing: { after: 80 } }));
+  }
+
   // Divider paragraph with bottom border
   paras.push(new Paragraph({
     children: [],

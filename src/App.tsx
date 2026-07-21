@@ -6,6 +6,17 @@ import './App.css';
 type Filter = 'active' | 'answered' | 'all';
 type Tab = 'prayers' | 'calendar';
 
+const DOT_PALETTE = [
+  '#c07a3a', '#3d6b52', '#6b4545', '#456b8a',
+  '#7a5c8a', '#8a7a3a', '#3a6b6b', '#8a4a6b',
+];
+
+function prayerColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+  return DOT_PALETTE[Math.abs(hash) % DOT_PALETTE.length];
+}
+
 function normalize(s: string) {
   return s.toLowerCase().trim();
 }
@@ -33,6 +44,7 @@ export default function App() {
     archivePrayer,
     deletePrayer,
     updateRequest,
+    updateNotes,
     logPrayed,
   } = usePrayers();
 
@@ -262,7 +274,8 @@ export default function App() {
                 onArchive={() => archivePrayer(prayer.id)}
                 onDelete={() => deletePrayer(prayer.id)}
                 onEditRequest={text => updateRequest(prayer.id, text)}
-                onLogPrayed={(entry) => logPrayed(prayer.id, entry)}
+                onLogPrayed={entry => logPrayed(prayer.id, entry)}
+                onSaveNotes={notes => updateNotes(prayer.id, notes)}
                 formatDate={formatDate}
               />
             ))}
@@ -307,6 +320,7 @@ interface CardProps {
   onDelete: () => void;
   onEditRequest: (text: string) => void;
   onLogPrayed: (entry: PrayedEntry) => void;
+  onSaveNotes: (notes: string) => void;
   formatDate: (iso: string) => string;
 }
 
@@ -326,11 +340,13 @@ function PrayerCard({
   onArchive,
   onDelete,
   onLogPrayed,
+  onSaveNotes,
   formatDate,
 }: CardProps) {
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
   const [logNote, setLogNote] = useState('');
   const [showLogForm, setShowLogForm] = useState(false);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
 
   function handleLogSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -339,15 +355,23 @@ function PrayerCard({
     setShowLogForm(false);
   }
 
+  function handleNotesSave() {
+    if (editingNotes === null) return;
+    onSaveNotes(editingNotes);
+    setEditingNotes(null);
+  }
+
   const sortedLog = [...(prayer.prayedLog ?? [])].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
+  const color = prayerColor(prayer.id);
+
   return (
-    <li className={`prayer-card ${prayer.status}`}>
+    <li className={`prayer-card ${prayer.status}`} style={{ borderLeftColor: color }}>
       <div className="card-top" onClick={onToggle}>
         <div className="card-main">
-          <span className={`status-dot ${prayer.status}`} />
+          <span className="status-dot" style={{ background: color }} />
           <div className="card-text">
             {prayer.person && (
               <p className="person-name">{highlight(prayer.person, searchQuery)}</p>
@@ -411,6 +435,39 @@ function PrayerCard({
             </div>
           )}
 
+          {/* Notes section */}
+          <div className="notes-section">
+            <div className="prayed-log-header">
+              <label className="answer-label">Notes</label>
+              {editingNotes === null && (
+                <button className="btn btn-sm" onClick={() => setEditingNotes(prayer.notes ?? '')}>
+                  {prayer.notes ? 'Edit' : '+ Add notes'}
+                </button>
+              )}
+            </div>
+            {editingNotes !== null ? (
+              <>
+                <textarea
+                  className="log-note-input"
+                  placeholder="Scripture, updates, mid-prayer thoughts…"
+                  value={editingNotes}
+                  onChange={e => setEditingNotes(e.target.value)}
+                  rows={4}
+                  autoFocus
+                />
+                <div className="card-actions">
+                  <button className="btn btn-primary btn-sm" onClick={handleNotesSave}>Save</button>
+                  <button className="btn btn-sm" onClick={() => setEditingNotes(null)}>Cancel</button>
+                </div>
+              </>
+            ) : prayer.notes ? (
+              <p className="notes-text">{prayer.notes}</p>
+            ) : (
+              <p className="prayed-log-empty">No notes yet.</p>
+            )}
+          </div>
+
+          {/* Prayer log section */}
           <div className="prayed-log-section">
             <div className="prayed-log-header">
               <label className="answer-label">Prayer Log</label>
@@ -482,7 +539,7 @@ function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const prayedByDate = useMemo(() => {
-    const map = new Map<string, Array<{ prayer: Prayer; entry: PrayedEntry }>>();
+    const map = new Map<string, Array<{ prayer: Prayer; entry: PrayedEntry }>>() ;
     prayers.forEach(prayer => {
       (prayer.prayedLog ?? []).forEach(entry => {
         const key = entry.date.slice(0, 10);
@@ -552,19 +609,26 @@ function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: 
             day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
           const isSelected = selectedDate === dateStr;
 
+          // Deduplicate colors so each prayer shows one dot per day
+          const uniqueColors = entries
+            ? Array.from(new Map(entries.map(e => [e.prayer.id, prayerColor(e.prayer.id)])).values())
+            : [];
+
           return (
             <div
               key={day}
               className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected ? 'cal-selected' : ''} ${entries ? 'cal-has-prayers' : ''}`}
-              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              onClick={() => entries && setSelectedDate(isSelected ? null : dateStr)}
             >
               <span className="cal-day-num">{day}</span>
-              {entries && (
+              {uniqueColors.length > 0 && (
                 <span className="cal-dot-row">
-                  {entries.slice(0, 3).map((_, di) => (
-                    <span key={di} className="cal-dot" />
+                  {uniqueColors.slice(0, 5).map((color, di) => (
+                    <span key={di} className="cal-dot" style={{ background: color }} />
                   ))}
-                  {entries.length > 3 && <span className="cal-dot-more">+{entries.length - 3}</span>}
+                  {uniqueColors.length > 5 && (
+                    <span className="cal-dot-more">+{uniqueColors.length - 5}</span>
+                  )}
                 </span>
               )}
             </div>
@@ -582,7 +646,7 @@ function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: 
           ) : (
             <ul className="cal-detail-list">
               {selectedEntries.map(({ prayer, entry }, i) => (
-                <li key={i} className="cal-detail-entry">
+                <li key={i} className="cal-detail-entry" style={{ borderLeftColor: prayerColor(prayer.id) }}>
                   <div className="cal-detail-prayer">
                     {prayer.person && <span className="person-name">{prayer.person} — </span>}
                     <span className="request-text">{prayer.request}</span>

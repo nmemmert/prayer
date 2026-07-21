@@ -630,6 +630,22 @@ mark.highlight {
   padding: 0.1rem 0.4rem;
 }
 
+/* Notes section */
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.notes-text {
+  font-size: 0.93rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
 /* Prayer log section inside card */
 .prayed-log-section {
   display: flex;

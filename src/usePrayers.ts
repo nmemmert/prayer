@@ -65,6 +65,9 @@ export function usePrayers() {
   const updateRequest = useCallback((id: string, request: string) =>
     patch(id, { request }), [patch]);
 
+  const updateNotes = useCallback((id: string, notes: string) =>
+    patch(id, { notes }), [patch]);
+
   const logPrayed = useCallback(async (id: string, entry: PrayedEntry) => {
     const prayer = prayers.find(p => p.id === id);
     if (!prayer) return;
@@ -88,6 +91,7 @@ export function usePrayers() {
     archivePrayer,
     deletePrayer,
     updateRequest,
+    updateNotes,
     logPrayed,
   };
 }

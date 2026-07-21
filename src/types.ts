@@ -8,6 +8,7 @@ export interface Prayer {
   person: string;
   request: string;
   answer: string;
+  notes?: string;
   status: 'active' | 'answered' | 'archived';
   createdAt: string;
   answeredAt?: string;
