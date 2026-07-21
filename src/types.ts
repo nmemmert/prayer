@@ -1,3 +1,8 @@
+export interface PrayedEntry {
+  date: string;
+  note: string;
+}
+
 export interface Prayer {
   id: string;
   person: string;
@@ -7,4 +12,5 @@ export interface Prayer {
   createdAt: string;
   answeredAt?: string;
   tags: string[];
+  prayedLog?: PrayedEntry[];
 }

@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { usePrayers } from './usePrayers';
-import { Prayer } from './types';
+import { Prayer, PrayedEntry } from './types';
 import './App.css';
 
 type Filter = 'active' | 'answered' | 'all';
+type Tab = 'prayers' | 'calendar';
 
 function normalize(s: string) {
   return s.toLowerCase().trim();
@@ -32,8 +33,10 @@ export default function App() {
     archivePrayer,
     deletePrayer,
     updateRequest,
+    logPrayed,
   } = usePrayers();
 
+  const [tab, setTab] = useState<Tab>('prayers');
   const [filter, setFilter] = useState<Filter>('active');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -125,127 +128,151 @@ export default function App() {
         <p className="subtitle">Bring your requests. Record His faithfulness.</p>
       </header>
 
-      <form className="add-form" onSubmit={handleAdd}>
-        <input
-          className="person-input"
-          placeholder="Who are you praying for? (optional)"
-          value={newPerson}
-          onChange={e => setNewPerson(e.target.value)}
-        />
-        <textarea
-          className="request-input"
-          placeholder="What would you like to pray about?"
-          value={newRequest}
-          onChange={e => setNewRequest(e.target.value)}
-          rows={3}
-        />
-        <div className="add-row">
-          <input
-            className="tag-input"
-            placeholder="Tags (comma separated)"
-            value={newTags}
-            onChange={e => setNewTags(e.target.value)}
-          />
-          <button className="btn btn-primary" type="submit">
-            Add Prayer
-          </button>
-        </div>
-      </form>
-
-      <div className="toolbar">
-        <div className="filter-bar">
-          <button
-            className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-            onClick={() => setFilter('active')}
-          >
-            Active <span className="count">{counts.active}</span>
-          </button>
-          <button
-            className={`filter-btn ${filter === 'answered' ? 'active' : ''}`}
-            onClick={() => setFilter('answered')}
-          >
-            Answered <span className="count">{counts.answered}</span>
-          </button>
-          <button
-            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            All
-          </button>
-        </div>
-
-        <button className="btn btn-export" onClick={handleExport} title="Export to Word">
-          ↓ Export
+      <div className="tab-bar">
+        <button
+          className={`tab-btn ${tab === 'prayers' ? 'active' : ''}`}
+          onClick={() => setTab('prayers')}
+        >
+          Prayers
         </button>
-
-        <div className="search-wrap">
-          <span className="search-icon">⌕</span>
-          <input
-            className="search-input"
-            placeholder="Search prayers…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && (
-            <button className="search-clear" onClick={() => setSearch('')}>✕</button>
-          )}
-        </div>
+        <button
+          className={`tab-btn ${tab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setTab('calendar')}
+        >
+          Calendar
+        </button>
       </div>
 
-      {allTags.length > 0 && (
-        <div className="tag-filter-bar">
-          <span className="tag-filter-label">Tags:</span>
-          {allTags.map(tag => (
-            <button
-              key={tag}
-              className={`tag-filter-btn ${activeTag === tag ? 'active' : ''}`}
-              onClick={() => handleTagClick(tag)}
-            >
-              {tag}
+      {tab === 'prayers' && (
+        <>
+          <form className="add-form" onSubmit={handleAdd}>
+            <input
+              className="person-input"
+              placeholder="Who are you praying for? (optional)"
+              value={newPerson}
+              onChange={e => setNewPerson(e.target.value)}
+            />
+            <textarea
+              className="request-input"
+              placeholder="What would you like to pray about?"
+              value={newRequest}
+              onChange={e => setNewRequest(e.target.value)}
+              rows={3}
+            />
+            <div className="add-row">
+              <input
+                className="tag-input"
+                placeholder="Tags (comma separated)"
+                value={newTags}
+                onChange={e => setNewTags(e.target.value)}
+              />
+              <button className="btn btn-primary" type="submit">
+                Add Prayer
+              </button>
+            </div>
+          </form>
+
+          <div className="toolbar">
+            <div className="filter-bar">
+              <button
+                className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
+                onClick={() => setFilter('active')}
+              >
+                Active <span className="count">{counts.active}</span>
+              </button>
+              <button
+                className={`filter-btn ${filter === 'answered' ? 'active' : ''}`}
+                onClick={() => setFilter('answered')}
+              >
+                Answered <span className="count">{counts.answered}</span>
+              </button>
+              <button
+                className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                All
+              </button>
+            </div>
+
+            <button className="btn btn-export" onClick={handleExport} title="Export to Word">
+              ↓ Export
             </button>
-          ))}
-          {activeTag && (
-            <button className="tag-clear-btn" onClick={() => setActiveTag(null)}>✕ Clear</button>
+
+            <div className="search-wrap">
+              <span className="search-icon">⌕</span>
+              <input
+                className="search-input"
+                placeholder="Search prayers…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button className="search-clear" onClick={() => setSearch('')}>✕</button>
+              )}
+            </div>
+          </div>
+
+          {allTags.length > 0 && (
+            <div className="tag-filter-bar">
+              <span className="tag-filter-label">Tags:</span>
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`tag-filter-btn ${activeTag === tag ? 'active' : ''}`}
+                  onClick={() => handleTagClick(tag)}
+                >
+                  {tag}
+                </button>
+              ))}
+              {activeTag && (
+                <button className="tag-clear-btn" onClick={() => setActiveTag(null)}>✕ Clear</button>
+              )}
+            </div>
           )}
-        </div>
+
+          {(writeError || apiError) && (
+            <div className="error-banner">⚠ {writeError || apiError}</div>
+          )}
+
+          {loading && <p className="loading">Loading prayers…</p>}
+
+          <ul className="prayer-list">
+            {filtered.length === 0 && !loading && (
+              <li className="empty">{emptyMessage}</li>
+            )}
+
+            {filtered.map(prayer => (
+              <PrayerCard
+                key={prayer.id}
+                prayer={prayer}
+                expanded={expandedId === prayer.id}
+                editingAnswer={editingAnswer?.id === prayer.id ? editingAnswer.text : null}
+                activeTag={activeTag}
+                searchQuery={search}
+                onTagClick={handleTagClick}
+                onToggle={() => setExpandedId(expandedId === prayer.id ? null : prayer.id)}
+                onStartAnswer={() => {
+                  setExpandedId(prayer.id);
+                  setEditingAnswer({ id: prayer.id, text: prayer.answer });
+                }}
+                onEditAnswer={text => setEditingAnswer({ id: prayer.id, text })}
+                onSaveAnswer={() => handleSaveAnswer(prayer.id)}
+                onCancelAnswer={() => setEditingAnswer(null)}
+                onMarkActive={() => markActive(prayer.id)}
+                onArchive={() => archivePrayer(prayer.id)}
+                onDelete={() => deletePrayer(prayer.id)}
+                onEditRequest={text => updateRequest(prayer.id, text)}
+                onLogPrayed={(entry) => logPrayed(prayer.id, entry)}
+                formatDate={formatDate}
+              />
+            ))}
+          </ul>
+        </>
       )}
 
-      {(writeError || apiError) && (
-        <div className="error-banner">⚠ {writeError || apiError}</div>
+      {tab === 'calendar' && (
+        <CalendarView prayers={prayers} formatDate={formatDate} />
       )}
-
-      {loading && <p className="loading">Loading prayers…</p>}
-
-      <ul className="prayer-list">
-        {filtered.length === 0 && !loading && (
-          <li className="empty">{emptyMessage}</li>
-        )}
-
-        {filtered.map(prayer => (
-          <PrayerCard
-            key={prayer.id}
-            prayer={prayer}
-            expanded={expandedId === prayer.id}
-            editingAnswer={editingAnswer?.id === prayer.id ? editingAnswer.text : null}
-            activeTag={activeTag}
-            searchQuery={search}
-            onTagClick={handleTagClick}
-            onToggle={() => setExpandedId(expandedId === prayer.id ? null : prayer.id)}
-            onStartAnswer={() => {
-              setExpandedId(prayer.id);
-              setEditingAnswer({ id: prayer.id, text: prayer.answer });
-            }}
-            onEditAnswer={text => setEditingAnswer({ id: prayer.id, text })}
-            onSaveAnswer={() => handleSaveAnswer(prayer.id)}
-            onCancelAnswer={() => setEditingAnswer(null)}
-            onMarkActive={() => markActive(prayer.id)}
-            onArchive={() => archivePrayer(prayer.id)}
-            onDelete={() => deletePrayer(prayer.id)}
-            onEditRequest={text => updateRequest(prayer.id, text)}
-            formatDate={formatDate}
-          />
-        ))}
-      </ul>
     </div>
   );
 }
@@ -279,6 +306,7 @@ interface CardProps {
   onArchive: () => void;
   onDelete: () => void;
   onEditRequest: (text: string) => void;
+  onLogPrayed: (entry: PrayedEntry) => void;
   formatDate: (iso: string) => string;
 }
 
@@ -297,8 +325,24 @@ function PrayerCard({
   onMarkActive,
   onArchive,
   onDelete,
+  onLogPrayed,
   formatDate,
 }: CardProps) {
+  const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
+  const [logNote, setLogNote] = useState('');
+  const [showLogForm, setShowLogForm] = useState(false);
+
+  function handleLogSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onLogPrayed({ date: logDate, note: logNote.trim() });
+    setLogNote('');
+    setShowLogForm(false);
+  }
+
+  const sortedLog = [...(prayer.prayedLog ?? [])].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
   return (
     <li className={`prayer-card ${prayer.status}`}>
       <div className="card-top" onClick={onToggle}>
@@ -313,6 +357,11 @@ function PrayerCard({
         </div>
         <div className="card-meta">
           <span className="date">{formatDate(prayer.createdAt)}</span>
+          {prayer.prayedLog && prayer.prayedLog.length > 0 && (
+            <span className="prayed-count" title={`Prayed ${prayer.prayedLog.length} time${prayer.prayedLog.length !== 1 ? 's' : ''}`}>
+              🙏 {prayer.prayedLog.length}
+            </span>
+          )}
           {prayer.tags.map(tag => (
             <span
               key={tag}
@@ -362,6 +411,55 @@ function PrayerCard({
             </div>
           )}
 
+          <div className="prayed-log-section">
+            <div className="prayed-log-header">
+              <label className="answer-label">Prayer Log</label>
+              {!showLogForm && (
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={() => setShowLogForm(true)}
+                >
+                  + I Prayed This
+                </button>
+              )}
+            </div>
+
+            {showLogForm && (
+              <form className="prayed-log-form" onSubmit={handleLogSubmit}>
+                <input
+                  type="date"
+                  className="log-date-input"
+                  value={logDate}
+                  onChange={e => setLogDate(e.target.value)}
+                />
+                <textarea
+                  className="log-note-input"
+                  placeholder="Notes from this prayer time (optional)"
+                  value={logNote}
+                  onChange={e => setLogNote(e.target.value)}
+                  rows={2}
+                />
+                <div className="card-actions">
+                  <button className="btn btn-primary btn-sm" type="submit">Save</button>
+                  <button className="btn btn-sm" type="button" onClick={() => setShowLogForm(false)}>Cancel</button>
+                </div>
+              </form>
+            )}
+
+            {sortedLog.length > 0 ? (
+              <ul className="prayed-log-list">
+                {sortedLog.map((entry, i) => (
+                  <li key={i} className="prayed-log-entry">
+                    <span className="prayed-log-date">{formatDate(entry.date)}</span>
+                    {entry.note && <p className="prayed-log-note">{entry.note}</p>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !showLogForm && <p className="prayed-log-empty">No prayer sessions logged yet.</p>
+            )}
+          </div>
+
           <div className="card-actions secondary">
             {prayer.status === 'answered' && (
               <button className="btn btn-sm ghost" onClick={onMarkActive}>
@@ -374,5 +472,128 @@ function PrayerCard({
         </div>
       )}
     </li>
+  );
+}
+
+function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: (iso: string) => string }) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const prayedByDate = useMemo(() => {
+    const map = new Map<string, Array<{ prayer: Prayer; entry: PrayedEntry }>>();
+    prayers.forEach(prayer => {
+      (prayer.prayedLog ?? []).forEach(entry => {
+        const key = entry.date.slice(0, 10);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push({ prayer, entry });
+      });
+    });
+    return map;
+  }, [prayers]);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+
+  function prevMonth() {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+    setSelectedDate(null);
+  }
+
+  function nextMonth() {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+    setSelectedDate(null);
+  }
+
+  const monthName = new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const selectedEntries = selectedDate ? (prayedByDate.get(selectedDate) ?? []) : [];
+
+  const totalThisMonth = useMemo(() => {
+    let count = 0;
+    prayedByDate.forEach((entries, date) => {
+      if (date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
+        count += entries.length;
+      }
+    });
+    return count;
+  }, [prayedByDate, year, month]);
+
+  return (
+    <div className="calendar-view">
+      <div className="calendar-header">
+        <button className="cal-nav-btn" onClick={prevMonth}>‹</button>
+        <span className="cal-month-name">{monthName}</span>
+        <button className="cal-nav-btn" onClick={nextMonth}>›</button>
+      </div>
+
+      {totalThisMonth > 0 && (
+        <p className="cal-summary">{totalThisMonth} prayer session{totalThisMonth !== 1 ? 's' : ''} this month</p>
+      )}
+
+      <div className="cal-grid">
+        {dayNames.map(d => (
+          <div key={d} className="cal-dow">{d}</div>
+        ))}
+
+        {Array.from({ length: firstDow }).map((_, i) => (
+          <div key={`blank-${i}`} className="cal-cell cal-blank" />
+        ))}
+
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1;
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const entries = prayedByDate.get(dateStr);
+          const isToday =
+            day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+          const isSelected = selectedDate === dateStr;
+
+          return (
+            <div
+              key={day}
+              className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected ? 'cal-selected' : ''} ${entries ? 'cal-has-prayers' : ''}`}
+              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+            >
+              <span className="cal-day-num">{day}</span>
+              {entries && (
+                <span className="cal-dot-row">
+                  {entries.slice(0, 3).map((_, di) => (
+                    <span key={di} className="cal-dot" />
+                  ))}
+                  {entries.length > 3 && <span className="cal-dot-more">+{entries.length - 3}</span>}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedDate && (
+        <div className="cal-detail">
+          <h3 className="cal-detail-title">
+            {formatDate(selectedDate + 'T12:00:00')}
+          </h3>
+          {selectedEntries.length === 0 ? (
+            <p className="prayed-log-empty">No prayer sessions on this day.</p>
+          ) : (
+            <ul className="cal-detail-list">
+              {selectedEntries.map(({ prayer, entry }, i) => (
+                <li key={i} className="cal-detail-entry">
+                  <div className="cal-detail-prayer">
+                    {prayer.person && <span className="person-name">{prayer.person} — </span>}
+                    <span className="request-text">{prayer.request}</span>
+                  </div>
+                  {entry.note && <p className="prayed-log-note">{entry.note}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Prayer } from './types';
+import { Prayer, PrayedEntry } from './types';
 
 const API = '/api/prayers';
 
@@ -65,6 +65,13 @@ export function usePrayers() {
   const updateRequest = useCallback((id: string, request: string) =>
     patch(id, { request }), [patch]);
 
+  const logPrayed = useCallback(async (id: string, entry: PrayedEntry) => {
+    const prayer = prayers.find(p => p.id === id);
+    if (!prayer) return;
+    const prayedLog = [...(prayer.prayedLog ?? []), entry];
+    await patch(id, { prayedLog });
+  }, [prayers, patch]);
+
   const deletePrayer = useCallback(async (id: string) => {
     await fetch(`${API}/${id}`, { method: 'DELETE' }).then(checkResponse);
     setPrayers(prev => prev.filter(p => p.id !== id));
@@ -81,5 +88,6 @@ export function usePrayers() {
     archivePrayer,
     deletePrayer,
     updateRequest,
+    logPrayed,
   };
 }
