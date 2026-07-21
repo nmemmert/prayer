@@ -13,6 +13,5 @@ COPY server.js ./
 COPY --from=build /app/build ./build
 
 ENV DATA_DIR=/data
-VOLUME ["/data"]
 EXPOSE 4000
 CMD ["node", "server.js"]
