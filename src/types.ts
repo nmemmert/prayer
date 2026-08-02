@@ -14,4 +14,11 @@ export interface Prayer {
   answeredAt?: string;
   tags: string[];
   prayedLog?: PrayedEntry[];
+  reminderDays?: string[]; // e.g. ['mon', 'wed', 'fri']
+}
+
+export interface AppSettings {
+  ntfyTopic?: string;
+  dailyDigestTime?: string; // HH:MM
+  reminderTime?: string;    // HH:MM — time per-prayer reminders fire
 }

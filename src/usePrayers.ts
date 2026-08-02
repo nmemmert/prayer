@@ -75,6 +75,9 @@ export function usePrayers() {
     await patch(id, { prayedLog });
   }, [prayers, patch]);
 
+  const updateReminderDays = useCallback((id: string, reminderDays: string[]) =>
+    patch(id, { reminderDays }), [patch]);
+
   const deletePrayer = useCallback(async (id: string) => {
     await fetch(`${API}/${id}`, { method: 'DELETE' }).then(checkResponse);
     setPrayers(prev => prev.filter(p => p.id !== id));
@@ -93,5 +96,6 @@ export function usePrayers() {
     updateRequest,
     updateNotes,
     logPrayed,
+    updateReminderDays,
   };
 }

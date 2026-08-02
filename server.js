@@ -3,16 +3,16 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const cron = require('node-cron');
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
-  AlignmentType, BorderStyle, ShadingType, TableRow, TableCell,
-  Table, WidthType, PageBreak, Header, Footer, PageNumber,
-  NumberFormat,
+  AlignmentType, BorderStyle, PageBreak, Footer, PageNumber,
 } = require('docx');
 
 const app = express();
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'prayers.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const PORT = process.env.PORT || 4000;
 
 try {
@@ -42,9 +42,87 @@ function writePrayers(prayers) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(prayers, null, 2));
 }
 
+function readSettings() {
+  if (!fs.existsSync(SETTINGS_FILE)) return {};
+  try { return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); } catch { return {}; }
+}
+
+function writeSettings(s) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2));
+}
+
 function fmtDate(iso) {
   return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 }
+
+async function sendNtfy(topic, title, message, tags = []) {
+  if (!topic) return;
+  const url = topic.startsWith('http') ? topic : `https://ntfy.sh/${topic}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Title': title,
+        'Content-Type': 'text/plain',
+        ...(tags.length ? { 'Tags': tags.join(',') } : {}),
+      },
+      body: message,
+    });
+    if (!res.ok) console.error('ntfy error:', res.status, await res.text());
+    else console.log(`ntfy sent: "${title}"`);
+  } catch (err) {
+    console.error('ntfy send failed:', err.message);
+  }
+}
+
+async function sendDailyDigest() {
+  const settings = readSettings();
+  if (!settings.ntfyTopic) return;
+  const prayers = readPrayers().filter(p => p.status === 'active');
+  if (!prayers.length) return;
+  const lines = prayers.map((p, i) => {
+    const who = p.person ? `${p.person}: ` : '';
+    return `${i + 1}. ${who}${p.request}`;
+  });
+  await sendNtfy(
+    settings.ntfyTopic,
+    `Prayer Journal — ${prayers.length} active prayer${prayers.length !== 1 ? 's' : ''}`,
+    lines.join('\n'),
+    ['pray', 'raised_hands']
+  );
+}
+
+async function checkPrayerReminders() {
+  const settings = readSettings();
+  if (!settings.ntfyTopic) return;
+  const prayers = readPrayers().filter(p => p.status === 'active' && p.reminderDays && p.reminderDays.length);
+  if (!prayers.length) return;
+
+  const now = new Date();
+  const dayName = ['sun','mon','tue','wed','thu','fri','sat'][now.getDay()];
+  const currentHHMM = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const reminderTime = settings.reminderTime || '08:00';
+  if (currentHHMM !== reminderTime) return;
+
+  for (const prayer of prayers) {
+    if ((prayer.reminderDays || []).includes(dayName)) {
+      const title = prayer.person ? `Praying for ${prayer.person}` : 'Prayer reminder';
+      await sendNtfy(settings.ntfyTopic, title, prayer.request, ['pray', 'raised_hands']);
+    }
+  }
+}
+
+// Cron: every minute checks whether it's time for digest or per-prayer reminders
+cron.schedule('* * * * *', async () => {
+  const settings = readSettings();
+  if (!settings.ntfyTopic) return;
+  const now = new Date();
+  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  if (settings.dailyDigestTime && hhmm === settings.dailyDigestTime) await sendDailyDigest();
+  if (settings.reminderTime) await checkPrayerReminders();
+});
+console.log('Notification cron scheduled.');
 
 function prayerToSection(prayer, index) {
   const paras = [];
@@ -130,6 +208,27 @@ function prayerToSection(prayer, index) {
 
   return paras;
 }
+
+app.get('/api/settings', (req, res) => {
+  res.json(readSettings());
+});
+
+app.put('/api/settings', (req, res) => {
+  try {
+    const updated = { ...readSettings(), ...req.body };
+    writeSettings(updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not save settings.' });
+  }
+});
+
+app.post('/api/notifications/test', async (req, res) => {
+  const settings = readSettings();
+  if (!settings.ntfyTopic) return res.status(400).json({ error: 'No ntfy topic configured.' });
+  await sendNtfy(settings.ntfyTopic, 'Prayer Journal — Test', 'Notifications are working! 🙏', ['white_check_mark']);
+  res.json({ ok: true });
+});
 
 app.get('/api/export', (req, res) => {
   try {

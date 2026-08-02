@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePrayers } from './usePrayers';
-import { Prayer, PrayedEntry } from './types';
+import { useSettings } from './useSettings';
+import { Prayer, PrayedEntry, AppSettings } from './types';
 import './App.css';
 
 type Filter = 'active' | 'answered' | 'all';
@@ -32,6 +33,9 @@ function matches(prayer: Prayer, query: string) {
   );
 }
 
+const DAYS = ['sun','mon','tue','wed','thu','fri','sat'] as const;
+const DAY_LABELS: Record<string, string> = { sun:'Su', mon:'Mo', tue:'Tu', wed:'We', thu:'Th', fri:'Fr', sat:'Sa' };
+
 export default function App() {
   const {
     prayers,
@@ -46,8 +50,11 @@ export default function App() {
     updateRequest,
     updateNotes,
     logPrayed,
+    updateReminderDays,
   } = usePrayers();
 
+  const { settings, saveSettings, testNotification } = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState<Tab>('prayers');
   const [filter, setFilter] = useState<Filter>('active');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -138,7 +145,18 @@ export default function App() {
       <header className="header">
         <h1>Prayer Journal</h1>
         <p className="subtitle">Bring your requests. Record His faithfulness.</p>
+        <button className="btn ghost settings-btn" onClick={() => setShowSettings(s => !s)} title="Notification settings">
+          🔔 {showSettings ? 'Close settings' : 'Notifications'}
+        </button>
       </header>
+
+      {showSettings && (
+        <SettingsPanel
+          settings={settings}
+          onSave={saveSettings}
+          onTest={testNotification}
+        />
+      )}
 
       <div className="tab-bar">
         <button
@@ -261,6 +279,7 @@ export default function App() {
                 editingAnswer={editingAnswer?.id === prayer.id ? editingAnswer.text : null}
                 activeTag={activeTag}
                 searchQuery={search}
+                ntfyConfigured={!!settings.ntfyTopic}
                 onTagClick={handleTagClick}
                 onToggle={() => setExpandedId(expandedId === prayer.id ? null : prayer.id)}
                 onStartAnswer={() => {
@@ -276,6 +295,7 @@ export default function App() {
                 onEditRequest={text => updateRequest(prayer.id, text)}
                 onLogPrayed={entry => logPrayed(prayer.id, entry)}
                 onSaveNotes={notes => updateNotes(prayer.id, notes)}
+                onUpdateReminderDays={days => updateReminderDays(prayer.id, days)}
                 formatDate={formatDate}
               />
             ))}
@@ -303,12 +323,90 @@ function highlight(text: string, query: string) {
   );
 }
 
+function SettingsPanel({
+  settings,
+  onSave,
+  onTest,
+}: {
+  settings: AppSettings;
+  onSave: (s: Partial<AppSettings>) => Promise<AppSettings>;
+  onTest: () => Promise<void>;
+}) {
+  const [topic, setTopic] = useState(settings.ntfyTopic || '');
+  const [digest, setDigest] = useState(settings.dailyDigestTime || '');
+  const [remTime, setRemTime] = useState(settings.reminderTime || '08:00');
+  const [msg, setMsg] = useState('');
+  const [testing, setTesting] = useState(false);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await onSave({ ntfyTopic: topic.trim() || undefined, dailyDigestTime: digest || undefined, reminderTime: remTime || '08:00' });
+      setMsg('Settings saved.');
+    } catch { setMsg('Failed to save.'); }
+    setTimeout(() => setMsg(''), 3000);
+  }
+
+  async function handleTest() {
+    setTesting(true);
+    try { await onTest(); setMsg('Test notification sent!'); }
+    catch (err: any) { setMsg(err.message); }
+    setTesting(false);
+    setTimeout(() => setMsg(''), 4000);
+  }
+
+  return (
+    <div className="settings-panel">
+      <h2 className="settings-title">Notification Settings</h2>
+      <p className="settings-desc">
+        Notifications are sent via <a href="https://ntfy.sh" target="_blank" rel="noreferrer">ntfy.sh</a> — a free, open-source push service.
+        Install the ntfy app on your phone and subscribe to your topic to receive notifications.
+      </p>
+      <form onSubmit={handleSave} className="settings-form">
+        <label className="settings-label">
+          ntfy topic
+          <input
+            className="settings-input"
+            placeholder="e.g. my-prayer-journal-abc123"
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+          />
+          <span className="settings-hint">Pick a unique topic name. Anyone who knows it can subscribe, so make it hard to guess.</span>
+        </label>
+
+        <label className="settings-label">
+          Daily digest time
+          <input type="time" className="settings-input" value={digest} onChange={e => setDigest(e.target.value)} />
+          <span className="settings-hint">Receive a summary of all active prayers at this time each day. Leave blank to disable.</span>
+        </label>
+
+        <label className="settings-label">
+          Per-prayer reminder time
+          <input type="time" className="settings-input" value={remTime} onChange={e => setRemTime(e.target.value)} />
+          <span className="settings-hint">Time of day reminders fire for individual prayers that have reminder days set.</span>
+        </label>
+
+        <div className="settings-actions">
+          <button className="btn btn-primary btn-sm" type="submit">Save</button>
+          {topic && (
+            <button type="button" className="btn btn-sm" onClick={handleTest} disabled={testing}>
+              {testing ? 'Sending…' : 'Send test'}
+            </button>
+          )}
+          {msg && <span className="settings-msg">{msg}</span>}
+        </div>
+      </form>
+    </div>
+  );
+}
+
 interface CardProps {
   prayer: Prayer;
   expanded: boolean;
   editingAnswer: string | null;
   activeTag: string | null;
   searchQuery: string;
+  ntfyConfigured: boolean;
   onTagClick: (tag: string) => void;
   onToggle: () => void;
   onStartAnswer: () => void;
@@ -321,6 +419,7 @@ interface CardProps {
   onEditRequest: (text: string) => void;
   onLogPrayed: (entry: PrayedEntry) => void;
   onSaveNotes: (notes: string) => void;
+  onUpdateReminderDays: (days: string[]) => void;
   formatDate: (iso: string) => string;
 }
 
@@ -330,6 +429,7 @@ function PrayerCard({
   editingAnswer,
   activeTag,
   searchQuery,
+  ntfyConfigured,
   onTagClick,
   onToggle,
   onStartAnswer,
@@ -341,6 +441,7 @@ function PrayerCard({
   onDelete,
   onLogPrayed,
   onSaveNotes,
+  onUpdateReminderDays,
   formatDate,
 }: CardProps) {
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
@@ -359,6 +460,12 @@ function PrayerCard({
     if (editingNotes === null) return;
     onSaveNotes(editingNotes);
     setEditingNotes(null);
+  }
+
+  function toggleDay(day: string) {
+    const current = prayer.reminderDays || [];
+    const next = current.includes(day) ? current.filter(d => d !== day) : [...current, day];
+    onUpdateReminderDays(next);
   }
 
   const sortedLog = [...(prayer.prayedLog ?? [])].sort(
@@ -472,10 +579,7 @@ function PrayerCard({
             <div className="prayed-log-header">
               <label className="answer-label">Prayer Log</label>
               {!showLogForm && (
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => setShowLogForm(true)}
-                >
+                <button className="btn btn-sm btn-primary" onClick={() => setShowLogForm(true)}>
                   + I Prayed This
                 </button>
               )}
@@ -526,6 +630,24 @@ function PrayerCard({
             <button className="btn btn-sm ghost" onClick={onArchive}>Archive</button>
             <button className="btn btn-sm ghost danger" onClick={onDelete}>Delete</button>
           </div>
+
+          {ntfyConfigured && prayer.status === 'active' && (
+            <div className="reminder-row">
+              <span className="reminder-label">🔔 Remind me</span>
+              <div className="day-picker">
+                {DAYS.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`day-btn ${(prayer.reminderDays || []).includes(d) ? 'active' : ''}`}
+                    onClick={() => toggleDay(d)}
+                  >
+                    {DAY_LABELS[d]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </li>
@@ -539,7 +661,7 @@ function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const prayedByDate = useMemo(() => {
-    const map = new Map<string, Array<{ prayer: Prayer; entry: PrayedEntry }>>() ;
+    const map = new Map<string, Array<{ prayer: Prayer; entry: PrayedEntry }>>();
     prayers.forEach(prayer => {
       (prayer.prayedLog ?? []).forEach(entry => {
         const key = entry.date.slice(0, 10);
@@ -609,7 +731,6 @@ function CalendarView({ prayers, formatDate }: { prayers: Prayer[]; formatDate: 
             day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
           const isSelected = selectedDate === dateStr;
 
-          // Deduplicate colors so each prayer shows one dot per day
           const uniqueColors = entries
             ? Array.from(new Map(entries.map(e => [e.prayer.id, prayerColor(e.prayer.id)])).values())
             : [];
