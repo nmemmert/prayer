@@ -59,11 +59,13 @@ function fmtDate(iso) {
 async function sendNtfy(topic, title, message, tags = []) {
   if (!topic) return;
   const url = topic.startsWith('http') ? topic : `https://ntfy.sh/${topic}`;
+  // HTTP headers must be ASCII-only; replace non-ASCII characters
+  const safeTitle = title.replace(/[^\x00-\x7F]/g, '-');
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Title': title,
+        'Title': safeTitle,
         'Content-Type': 'text/plain',
         ...(tags.length ? { 'Tags': tags.join(',') } : {}),
       },
@@ -87,7 +89,7 @@ async function sendDailyDigest() {
   });
   await sendNtfy(
     settings.ntfyTopic,
-    `Prayer Journal — ${prayers.length} active prayer${prayers.length !== 1 ? 's' : ''}`,
+    `Prayer Journal -${prayers.length} active prayer${prayers.length !== 1 ? 's' : ''}`,
     lines.join('\n'),
     ['pray', 'raised_hands']
   );
@@ -226,7 +228,7 @@ app.put('/api/settings', (req, res) => {
 app.post('/api/notifications/test', async (req, res) => {
   const settings = readSettings();
   if (!settings.ntfyTopic) return res.status(400).json({ error: 'No ntfy topic configured.' });
-  await sendNtfy(settings.ntfyTopic, 'Prayer Journal — Test', 'Notifications are working! 🙏', ['white_check_mark']);
+  await sendNtfy(settings.ntfyTopic, 'Prayer Journal -Test', 'Notifications are working! 🙏', ['white_check_mark']);
   res.json({ ok: true });
 });
 
