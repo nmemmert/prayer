@@ -6,10 +6,19 @@ services:
     ports:
       - "3000:4000"
     volumes:
+      # Bind mount to host path — data survives container recreation.
+      # ZimaOS default: /media/ZimaOS-HD/AppData/Prayer/Data
+      # Change this path to match your host setup.
       - /media/ZimaOS-HD/AppData/Prayer/Data:/data
     environment:
       - DATA_DIR=/data
       - PORT=4000
+      # Optional: set your timezone so daily-digest and reminder times
+      # fire at the correct local time. Examples:
+      #   TZ=America/Chicago
+      #   TZ=America/New_York
+      #   TZ=Europe/London
+      - TZ=America/Chicago
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/prayers"]

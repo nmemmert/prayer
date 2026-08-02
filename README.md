@@ -1,16 +1,26 @@
 # Prayer Journal
 
-A todo-list style prayer app. Add prayer requests, record how God answered them, filter between active and answered, and tag entries for organization. Data persists to a mounted Docker volume.
+A todo-list style prayer app. Add prayer requests, record how God answered them, filter between active and answered, tag entries for organization, log individual prayer sessions, and receive push notifications on your phone.
+
+## Features
+
+- **Prayer requests** — add a person, request text, and tags
+- **Answers** — record how God answered and mark prayers complete
+- **Prayer log** — tap "I Prayed This" to log each session with optional notes
+- **Calendar view** — see your prayer activity by day
+- **Search** — full-text search across requests, answers, and tags
+- **Export** — download your journal as a Word (.docx) document
+- **Push notifications** — daily digest and per-prayer reminders via ntfy
 
 ## Running with Docker
 
-### Pull the pre-built image (recommended)
+### Quick start (pull pre-built image)
 
 ```bash
 docker compose up -d
 ```
 
-The `docker-compose.yml` pulls `ghcr.io/nmemmert/prayer:latest` automatically. Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
 ### Build locally
 
@@ -20,66 +30,81 @@ docker compose up --build -d
 
 ### Data persistence
 
-Prayer data is stored in `/data/prayers.json` inside the container, mounted as the named Docker volume `prayer-data`. Data survives container restarts and image updates.
+All data is stored in the bind-mounted `/data` directory:
 
-To inspect or back up your data:
+| File | Contents |
+|------|----------|
+| `prayers.json` | All prayer requests and logs |
+| `settings.json` | Notification settings (ntfy topic, times) |
 
-```bash
-# Print current prayers
-docker compose exec prayer cat /data/prayers.json
+The default host path is `/media/ZimaOS-HD/AppData/Prayer/Data`. Change the `volumes` line in `docker-compose.yml` to match your server.
 
-# Copy to host
-docker cp $(docker compose ps -q prayer):/data/prayers.json ./prayers-backup.json
-```
+### Timezone
 
-To wipe all data:
-
-```bash
-docker compose down -v
-```
-
-### Using a host-bind mount instead of a named volume
-
-Replace the `volumes` block in `docker-compose.yml`:
+Notification times (daily digest, reminders) are evaluated in the container's timezone. Set the `TZ` environment variable in `docker-compose.yml` to your local timezone so times fire when you expect:
 
 ```yaml
-volumes:
-  - ./prayer-data:/data
+environment:
+  - TZ=America/Chicago   # or America/New_York, Europe/London, etc.
+```
+
+Restart the container after changing the timezone:
+
+```bash
+docker compose up -d
+```
+
+## Push Notifications (ntfy)
+
+Prayer Journal sends notifications via [ntfy.sh](https://ntfy.sh) — a free, open-source push service that works without an account.
+
+### Setup
+
+1. **Install the ntfy app** on your phone — search "ntfy" on the App Store or Google Play, or visit [ntfy.sh](https://ntfy.sh)
+2. **Open the app** and add a subscription to your chosen topic name (e.g. `my-prayers-7x3q9`). Pick something unique and hard to guess — anyone who knows the topic can subscribe.
+3. **Open Prayer Journal** in the browser and click **🔔 Notifications** in the header
+4. **Enter the same topic name** and configure:
+   - **Daily digest time** — receive a list of all active prayers at this time each day (leave blank to disable)
+   - **Per-prayer reminder time** — the time of day individual prayer reminders fire
+5. **Click "Send test"** to verify everything is working
+
+### Per-prayer reminders
+
+On any active prayer card, expand it and use the **🔔 Remind me** row to pick which days of the week you want a reminder for that prayer. The reminder fires at the per-prayer reminder time configured in settings.
+
+### Self-hosted ntfy
+
+If you run your own ntfy server, enter the full URL as the topic:
+
+```
+https://your-ntfy-server.example.com/my-topic
 ```
 
 ## CI / CD
 
 Pushes to `main` trigger a GitHub Actions workflow (`.github/workflows/docker.yml`) that:
 
-1. Builds the Docker image (multi-stage: Node 20 → Node 20 slim)
+1. Builds the Docker image (multi-stage: Node 22 build → Node 22 runtime)
 2. Pushes to GitHub Container Registry (`ghcr.io/nmemmert/prayer`)
 3. Tags the image as `latest`, the branch name, and the short commit SHA
 
-Pull requests run the build step only (no push).
-
-The `GITHUB_TOKEN` secret is used automatically — no additional secrets are required.
+The `GITHUB_TOKEN` secret is used automatically — no additional secrets required.
 
 ## Development
 
 ```bash
 npm install
-npm start        # React dev server on :3000 (uses localStorage, no backend)
-node server.js   # API server on :4000 (reads/writes data/prayers.json)
-```
-
-For full local dev with the backend:
-
-```bash
-node server.js &
-REACT_APP_API_BASE=http://localhost:4000 npm start
+npm start        # React dev server on :3000
+node server.js   # API + notification server on :4000
 ```
 
 ## Stack
 
-| Layer    | Technology                        |
-|----------|-----------------------------------|
-| Frontend | React 18, TypeScript              |
-| Backend  | Node.js, Express                  |
-| Data     | JSON file on a Docker volume      |
-| Images   | GitHub Container Registry (ghcr)  |
-| CI/CD    | GitHub Actions                    |
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript |
+| Backend | Node.js, Express |
+| Notifications | ntfy.sh (via node-cron + fetch) |
+| Data | JSON files on a bind-mounted host directory |
+| Images | GitHub Container Registry (ghcr) |
+| CI/CD | GitHub Actions |
