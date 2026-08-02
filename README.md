@@ -61,7 +61,7 @@ Prayer Journal sends notifications via [ntfy.sh](https://ntfy.sh) — a free, op
 ### Setup
 
 1. **Install the ntfy app** on your phone — search "ntfy" on the App Store or Google Play, or visit [ntfy.sh](https://ntfy.sh)
-2. **Open the app** and add a subscription to your chosen topic name (e.g. `my-prayers-7x3q9`). Pick something unique and hard to guess — anyone who knows the topic can subscribe.
+2. **Open the app** and add a subscription to your chosen topic name (e.g. `my-prayers-7x3q9`). Pick something unique and hard to guess — anyone who knows the topic name can subscribe and read your notifications, so avoid obvious names like `prayer`.
 3. **Open Prayer Journal** in the browser and click **🔔 Notifications** in the header
 4. **Enter the same topic name** and configure:
    - **Daily digest time** — receive a list of all active prayers at this time each day (leave blank to disable)
@@ -71,6 +71,10 @@ Prayer Journal sends notifications via [ntfy.sh](https://ntfy.sh) — a free, op
 ### Per-prayer reminders
 
 On any active prayer card, expand it and use the **🔔 Remind me** row to pick which days of the week you want a reminder for that prayer. The reminder fires at the per-prayer reminder time configured in settings.
+
+### No account required
+
+ntfy.sh is a free public service — no sign-up needed. The app POSTs to `https://ntfy.sh/<your-topic>` and your phone subscribes to the same URL. Self-hosting is optional.
 
 ### Self-hosted ntfy
 
@@ -89,6 +93,8 @@ Pushes to `main` trigger a GitHub Actions workflow (`.github/workflows/docker.ym
 3. Tags the image as `latest`, the branch name, and the short commit SHA
 
 The `GITHUB_TOKEN` secret is used automatically — no additional secrets required.
+
+> **Note:** Commits made by Claude will appear as "Unverified" on GitHub because they are not GPG-signed. This is expected and does not affect functionality.
 
 ## Development
 
